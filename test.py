@@ -3,12 +3,11 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import time
 
+
 # data entry class
 # time: time song was played
 # songName: name of song
 # artist: artist
-
-
 class entry:
     # constructor
     def __init__(self, timeP, songNameP, artistP):
