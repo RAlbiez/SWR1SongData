@@ -1,3 +1,5 @@
+#!/usr/bin/python3
+
 import requests
 from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
@@ -8,6 +10,7 @@ import os
 # get current time
 timeNow = datetime.today()
 
+# read settings into dictionary
 settings = {}
 with open(os.path.join(os.getcwd(), "Settings.txt"), 'r') as file:
     sett = file.readlines()
@@ -114,10 +117,25 @@ with open(resultFilePath, 'a') as file:
         file.write(str(obj) + '\n')
 
 # find next link
-
+# new month
 if timeNow.hour == 0 and timeNow.day == 1:
+    # get json link from javascript part
     jsLink = soup.find("div", "calBox").find("li", "arrowForward").find("a")
     url = jsLink["data-ctrl-monthsheet-source"].split('\'')[3]
+
+    # perform get for json
+    contents = session.get(url, headers=headers)
+
+    # read encoding of contents
+    encoding = contents.encoding if 'charset' in contents.headers.get(
+        'content-type', '').lower() else None
+
+    # parse the link out of json part
+    # WARNING REALLY unsafe and could definitly fail with slight changes to the site
+    htmlContent = re.compile("<a href=(.*?)>")
+    reRes = htmlContent.search(str(contents.content[350:]))
+    url = reRes.group(1).replace('\\', '').replace('"', '').strip()
+
     # perform get request for new day
     contents = session.get(url, headers=headers)
 
@@ -125,51 +143,46 @@ if timeNow.hour == 0 and timeNow.day == 1:
     encoding = contents.encoding if 'charset' in contents.headers.get(
         'content-type', '').lower() else None
 
-    htmlContent = re.compile("<a href=(.*?)>")
-
-    reRes = htmlContent.search(str(contents.content[350:]))
-
-    url = reRes.group(1).replace('\\', '').replace('"', '').strip()
-
-    with open(os.path.join(os.getcwd(), 'nextHour.txt'), 'w') as f:
-        print(url, file=f)
+    # cook up some new stew
+    soup = BeautifulSoup(
+        contents.content, from_encoding=encoding, features="html.parser")
 
 
 # if new day has started a new request has to be made
-else:
-    if timeNow.hour == 0:
-        # find day table
-        allDays = soup.find("table", "progDays").find_all("a")
+elif timeNow.hour == 0:
+    # find day table
+    allDays = soup.find("table", "progDays").find_all("a")
 
-        # find current day of month
-        dayToFind = str(timeNow.day)
+    # find current day of month
+    dayToFind = str(timeNow.day)
 
-        # look for current day
-        for day in allDays:
-            if dayToFind in day.text:
-                url = day['href']
+    # look for current day
+    for day in allDays:
+        if dayToFind in day.text:
+            url = day['href']
 
-        # perform get request for new day
-        contents = session.get(url, headers=headers)
+    # perform get request for new day
+    contents = session.get(url, headers=headers)
 
-        # read encoding of contents
-        encoding = contents.encoding if 'charset' in contents.headers.get(
-            'content-type', '').lower() else None
+    # read encoding of contents
+    encoding = contents.encoding if 'charset' in contents.headers.get(
+        'content-type', '').lower() else None
 
-        # cook up some new stew
-        soup = BeautifulSoup(
-            contents.content, from_encoding=encoding, features="html.parser")
+    # cook up some new stew
+    soup = BeautifulSoup(
+        contents.content, from_encoding=encoding, features="html.parser")
 
-    # time period for next run
-    hourToFind = str(timeNow.hour) + ' - ' + \
-        str((timeNow + timedelta(hours=1)).hour)
+# time period for next run
+hourToFind = str(timeNow.hour) + ' - ' + \
+    str((timeNow + timedelta(hours=1)).hour)
 
-    # find all time periods
-    songTimes = soup.find("div", "progTime pulldown").find_all("a")
+# find all time periods
+songTimes = soup.find("div", "progTime pulldown").find_all("a")
 
-    # look for correct time period
-    for songTime in songTimes:
-        if hourToFind in songTime.text:
-            # write time period to file
-            with open(os.path.join(os.getcwd(), 'nextHour.txt'), 'w') as f:
-                print(songTime['href'], file=f)
+# look for correct time period
+for songTime in songTimes:
+    if hourToFind in songTime.text:
+        # write time period to file
+        with open(os.path.join(os.getcwd(), 'nextHour.txt'), 'w') as f:
+            print(songTime['href'], file=f)
+        break
