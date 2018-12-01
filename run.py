@@ -36,7 +36,7 @@ class entry:
     # str output
     def __str__(self):
         x = self.time.split('.')
-        songTime = timeNow
+        songTime = timeNow - timedelta(hours=1)
         songTime = songTime.replace(hour=int(x[0]), minute=int(x[1]))
         return songTime.strftime('%y.%m.%d_%H:%M') + ";" + self.songName + ";" + self.artist + ";" + self.title
 
