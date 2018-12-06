@@ -5,6 +5,8 @@ from bs4 import BeautifulSoup
 from datetime import datetime, timedelta
 import re
 import os
+import json
+from types import SimpleNamespace as Namespace
 
 
 # get current time
@@ -18,6 +20,9 @@ with open(os.path.join(os.getcwd(), "Settings.txt"), 'r') as file:
 for setting in sett:
     x = setting.split('=')
     settings[x[0]] = x[1]
+
+APILink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&autocorrect=1&api_key=' + \
+    settings['API key'].replace('\n', '')
 
 # data entry class
 # time: time song was played
@@ -38,7 +43,38 @@ class entry:
         x = self.time.split('.')
         songTime = timeNow - timedelta(hours=1)
         songTime = songTime.replace(hour=int(x[0]), minute=int(x[1]))
-        return songTime.strftime('%y.%m.%d_%H:%M') + ";" + self.songName + ";" + self.artist + ";" + self.title
+
+        artistAPI = self.artist.replace(' ', '%20')
+        trackAPI = self.songName.replace(' ', '%20')
+        specificLink = APILink + '&artist=' + \
+            artistAPI + '&track=' + trackAPI+'&format=json'
+
+        content = session.get(specificLink, headers=headers)
+
+        x = json.loads(content.text, object_hook=lambda d: Namespace(**d))
+
+        if hasattr(x, 'track'):
+            if hasattr(x.track, 'album') and hasattr(x.track.album, 'title'):
+                albumName = x.track.album.title
+            else:
+                albumName = ''
+            if hasattr(x.track, 'duration'):
+                length = str(int(x.track.duration) // 1000)
+            else:
+                length = ''
+            tags = []
+            if hasattr(x.track, 'toptags') and hasattr(x.track.toptags, 'tag'):
+                for tag in x.track.toptags.tag:
+                    tags.append(tag.name)
+            if hasattr(x.track, 'wiki') and hasattr(x.track.wiki, 'published'):
+                publishDate = x.track.wiki.published
+            else:
+                publishDate = ''
+
+        outputArgs = [songTime.strftime('%y.%m.%d_%H:%M'), self.songName, self.artist,
+                      self.title, albumName, length, "["+','.join(tags)+"]", publishDate]
+
+        return ';'.join(outputArgs)
 
     time = ''
     songName = ''
@@ -112,7 +148,7 @@ resultFilePath = os.path.join(os.path.expanduser(
     '~'), settings['path'], resultFileName)
 
 # print result to file
-with open(resultFilePath, 'a') as file:
+with open(resultFilePath.replace('\n', ''), 'a') as file:
     for obj in songEntrys:
         file.write(str(obj) + '\n')
 
