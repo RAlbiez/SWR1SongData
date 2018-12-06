@@ -44,8 +44,8 @@ class entry:
         songTime = timeNow - timedelta(hours=1)
         songTime = songTime.replace(hour=int(x[0]), minute=int(x[1]))
 
-        artistAPI = self.artist.replace(' ', '%20')
-        trackAPI = self.songName.replace(' ', '%20')
+        artistAPI = self.artist.replace(' ', '%20').replace('&', '')
+        trackAPI = self.songName.replace(' ', '%20').replace('&', '')
         specificLink = APILink + '&artist=' + \
             artistAPI + '&track=' + trackAPI+'&format=json'
 
