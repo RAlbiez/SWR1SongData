@@ -7,6 +7,7 @@ import re
 import os
 import json
 from types import SimpleNamespace as Namespace
+import urllib
 
 
 # get current time
@@ -21,6 +22,7 @@ for setting in sett:
     x = setting.split('=')
     settings[x[0]] = x[1]
 
+# link for lastFM song API
 APILink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&autocorrect=1&api_key=' + \
     settings['API key'].replace('\n', '')
 
@@ -40,40 +42,43 @@ class entry:
 
     # str output
     def __str__(self):
+        # find time at which the song ran
         x = self.time.split('.')
         songTime = timeNow - timedelta(hours=1)
         songTime = songTime.replace(hour=int(x[0]), minute=int(x[1]))
 
-        artistAPI = self.artist.replace(' ', '%20').replace('&', '')
-        trackAPI = self.songName.replace(' ', '%20').replace('&', '')
-        specificLink = APILink + '&artist=' + \
-            artistAPI + '&track=' + trackAPI+'&format=json'
+        # build url for API call
+        artistAPI = self.artist
+        trackAPI = self.songName
+        specificLink = APILink + \
+            '&artist=' + \
+            urllib.parse.quote_plus(
+                artistAPI) + '&track=' + urllib.parse.quote_plus(trackAPI)+'&format=json'
 
         content = session.get(specificLink, headers=headers)
 
+        # load information from content
         x = json.loads(content.text, object_hook=lambda d: Namespace(**d))
-
+        albumName = ''
+        length = ''
+        tags = []
+        publishDate = ''
         if hasattr(x, 'track'):
             if hasattr(x.track, 'album') and hasattr(x.track.album, 'title'):
                 albumName = x.track.album.title
-            else:
-                albumName = ''
             if hasattr(x.track, 'duration'):
                 length = str(int(x.track.duration) // 1000)
-            else:
-                length = ''
-            tags = []
             if hasattr(x.track, 'toptags') and hasattr(x.track.toptags, 'tag'):
                 for tag in x.track.toptags.tag:
                     tags.append(tag.name)
             if hasattr(x.track, 'wiki') and hasattr(x.track.wiki, 'published'):
                 publishDate = x.track.wiki.published
-            else:
-                publishDate = ''
 
+        # build output
         outputArgs = [songTime.strftime('%y.%m.%d_%H:%M'), self.songName, self.artist,
                       self.title, albumName, length, "["+','.join(tags)+"]", publishDate]
 
+        # return result
         return ';'.join(outputArgs)
 
     time = ''
@@ -112,45 +117,6 @@ encoding = contents.encoding if 'charset' in contents.headers.get(
 # create BeatifulSoup Html reader instance with correct encoding
 soup = BeautifulSoup(
     contents.content, from_encoding=encoding, features="html.parser")
-
-# find title of program
-programTitle = soup.find("h2", "musicProgHead").text.strip()
-
-# find all li tags from class "musicListItem"
-liItems = soup.find_all("li", {"class": "musicListItem"})
-
-# get the text without html tags contained in these items
-results = [i.text for i in liItems]
-
-# parse the result into  entry objects
-songEntrys = []
-for unchangedData in results:
-    # split line at newline char to find the relevant lines
-    dataLines = unchangedData.split('\n')
-    relevantLines = []
-    for line in dataLines:
-        # remove whitespace
-        lineStripped = line.strip()
-        # add line to result if there is still text in line
-        if lineStripped != '':
-            relevantLines.append(lineStripped)
-    # create entry object for line
-    obj = entry(relevantLines[0], relevantLines[1],
-                relevantLines[2], programTitle)
-    songEntrys.append(obj)
-
-# make a new file every month
-resultFileName = 'SWR1_History_' + \
-    str(timeNow.year) + '_' + str(timeNow.month) + '.txt'
-
-# join file path
-resultFilePath = os.path.join(os.path.expanduser(
-    '~'), settings['path'], resultFileName)
-
-# print result to file
-with open(resultFilePath.replace('\n', ''), 'a') as file:
-    for obj in songEntrys:
-        file.write(str(obj) + '\n')
 
 # find next link
 # new month
@@ -222,3 +188,42 @@ for songTime in songTimes:
         with open(os.path.join(os.getcwd(), 'nextHour.txt'), 'w') as f:
             print(songTime['href'], file=f)
         break
+
+# find title of program
+programTitle = soup.find("h2", "musicProgHead").text.strip()
+
+# find all li tags from class "musicListItem"
+liItems = soup.find_all("li", {"class": "musicListItem"})
+
+# get the text without html tags contained in these items
+results = [i.text for i in liItems]
+
+# parse the result into  entry objects
+songEntrys = []
+for unchangedData in results:
+    # split line at newline char to find the relevant lines
+    dataLines = unchangedData.split('\n')
+    relevantLines = []
+    for line in dataLines:
+        # remove whitespace
+        lineStripped = line.strip()
+        # add line to result if there is still text in line
+        if lineStripped != '':
+            relevantLines.append(lineStripped)
+    # create entry object for line
+    obj = entry(relevantLines[0], relevantLines[1],
+                relevantLines[2], programTitle)
+    songEntrys.append(obj)
+
+# make a new file every month
+resultFileName = 'SWR1_History_' + \
+    str(timeNow.year) + '_' + str(timeNow.month) + '.txt'
+
+# join file path
+resultFilePath = os.path.join(os.path.expanduser(
+    '~'), settings['path'], resultFileName)
+
+# print result to file
+with open(resultFilePath.replace('\n', ''), 'a') as file:
+    for obj in songEntrys:
+        file.write(str(obj) + '\n')
