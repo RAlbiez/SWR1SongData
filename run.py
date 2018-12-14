@@ -53,7 +53,7 @@ class entry:
         specificLink = APILink + \
             '&artist=' + \
             urllib.parse.quote_plus(
-                artistAPI) + '&track=' + urllib.parse.quote_plus(trackAPI)+'&format=json'
+                artistAPI) + '&track=' + urllib.parse.quote_plus(trackAPI) + '&format=json'
 
         content = session.get(specificLink, headers=headers)
 
@@ -62,7 +62,6 @@ class entry:
         albumName = ''
         length = ''
         tags = []
-        publishDate = ''
         if hasattr(x, 'track'):
             if hasattr(x.track, 'album') and hasattr(x.track.album, 'title'):
                 albumName = x.track.album.title
@@ -71,12 +70,10 @@ class entry:
             if hasattr(x.track, 'toptags') and hasattr(x.track.toptags, 'tag'):
                 for tag in x.track.toptags.tag:
                     tags.append(tag.name)
-            if hasattr(x.track, 'wiki') and hasattr(x.track.wiki, 'published'):
-                publishDate = x.track.wiki.published
 
         # build output
         outputArgs = [songTime.strftime('%y.%m.%d_%H:%M'), self.songName, self.artist,
-                      self.title, albumName, length, "["+','.join(tags)+"]", publishDate]
+                      self.title, albumName, length, "[" + ','.join(tags) + "]"]
 
         # return result
         return ';'.join(outputArgs)
