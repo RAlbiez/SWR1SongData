@@ -34,18 +34,19 @@ APILink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&autocorrect=1&
 
 class entry:
     # constructor
-    def __init__(self, timeP, songNameP, artistP, titleP):
+    def __init__(self, timeP, songNameP, artistP, titleP, dateP):
         self.time = timeP
         self.songName = songNameP
         self.artist = artistP
         self.title = titleP
+        self.date = dateP
 
     # str output
     def __str__(self):
         # find time at which the song ran
         x = self.time.split('.')
-        songTime = timeNow - timedelta(hours=1)
-        songTime = songTime.replace(hour=int(x[0]), minute=int(x[1]))
+        songTime = timeNow.replace(month=int(self.date[0:2]), day=int(
+            self.date[2:4]), hour=int(x[0]), minute=int(x[1]))
 
         # build url for API call
         artistAPI = self.artist
@@ -82,6 +83,7 @@ class entry:
     songName = ''
     artist = ''
     title = ''
+    date = ''
 
 
 # read url to read from
@@ -114,6 +116,51 @@ encoding = contents.encoding if 'charset' in contents.headers.get(
 # create BeatifulSoup Html reader instance with correct encoding
 soup = BeautifulSoup(
     contents.content, from_encoding=encoding, features="html.parser")
+
+# find date
+for x in url.split("/"):
+    if "date" in x:
+        date = x.split("=")[1][4:8]
+
+# find title of program
+programTitle = soup.find("h2", "musicProgHead").text.strip()
+
+# find all li tags from class "musicListItem"
+liItems = soup.find_all("li", {"class": "musicListItem"})
+
+# get the text without html tags contained in these items
+results = [i.text for i in liItems]
+
+# parse the result into  entry objects
+songEntrys = []
+for unchangedData in results:
+    # split line at newline char to find the relevant lines
+    dataLines = unchangedData.split('\n')
+    relevantLines = []
+    for line in dataLines:
+        # remove whitespace
+        lineStripped = line.strip()
+        # add line to result if there is still text in line
+        if lineStripped != '':
+            relevantLines.append(lineStripped)
+    # create entry object for line
+    obj = entry(relevantLines[0], relevantLines[1],
+                relevantLines[2], programTitle, date)
+    songEntrys.append(obj)
+
+# make a new file every month
+resultFileName = 'SWR1_History_' + \
+    str(timeNow.year) + '_' + str(timeNow.month) + '.txt'
+
+# join file path
+resultFilePath = os.path.join(os.path.expanduser(
+    '~'), settings['path'], resultFileName)
+
+# print result to file
+with open(resultFilePath.replace('\n', ''), 'a') as file:
+    for obj in songEntrys:
+        file.write(str(obj) + '\n')
+
 
 # find next link
 # new month
@@ -185,42 +232,3 @@ for songTime in songTimes:
         with open(os.path.join(os.getcwd(), 'nextHour.txt'), 'w') as f:
             print(songTime['href'], file=f)
         break
-
-# find title of program
-programTitle = soup.find("h2", "musicProgHead").text.strip()
-
-# find all li tags from class "musicListItem"
-liItems = soup.find_all("li", {"class": "musicListItem"})
-
-# get the text without html tags contained in these items
-results = [i.text for i in liItems]
-
-# parse the result into  entry objects
-songEntrys = []
-for unchangedData in results:
-    # split line at newline char to find the relevant lines
-    dataLines = unchangedData.split('\n')
-    relevantLines = []
-    for line in dataLines:
-        # remove whitespace
-        lineStripped = line.strip()
-        # add line to result if there is still text in line
-        if lineStripped != '':
-            relevantLines.append(lineStripped)
-    # create entry object for line
-    obj = entry(relevantLines[0], relevantLines[1],
-                relevantLines[2], programTitle)
-    songEntrys.append(obj)
-
-# make a new file every month
-resultFileName = 'SWR1_History_' + \
-    str(timeNow.year) + '_' + str(timeNow.month) + '.txt'
-
-# join file path
-resultFilePath = os.path.join(os.path.expanduser(
-    '~'), settings['path'], resultFileName)
-
-# print result to file
-with open(resultFilePath.replace('\n', ''), 'a') as file:
-    for obj in songEntrys:
-        file.write(str(obj) + '\n')
