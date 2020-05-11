@@ -8,10 +8,8 @@ import os
 import json
 from types import SimpleNamespace as Namespace
 import urllib
+import time
 
-
-# get current time
-timeNow = datetime.today()
 
 # read settings into dictionary
 settings = {}
@@ -34,20 +32,13 @@ APILink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&autocorrect=1&
 
 class entry:
     # constructor
-    def __init__(self, timeP, songNameP, artistP, titleP, dateP):
-        self.time = timeP
+    def __init__(self, songNameP, artistP, dateP):
         self.songName = songNameP
         self.artist = artistP
-        self.title = titleP
         self.date = dateP
 
     # str output
     def __str__(self):
-        # find time at which the song ran
-        x = self.time.split('.')
-        songTime = timeNow.replace(month=int(self.date[0:2]), day=int(
-            self.date[2:4]), hour=int(x[0]), minute=int(x[1]))
-
         # build url for API call
         artistAPI = self.artist
         trackAPI = self.songName
@@ -73,8 +64,7 @@ class entry:
                     tags.append(tag.name)
 
         # build output
-        outputArgs = [songTime.strftime('%y.%m.%d_%H:%M'), self.songName, self.artist,
-                      self.title, albumName, length, "[" + ','.join(tags) + "]"]
+        outputArgs = [self.date.strftime('%y.%m.%d_%H:%M'), self.songName, self.artist, albumName, length, "[" + ','.join(tags) + "]"]
 
         # return result
         return ';'.join(outputArgs)
@@ -85,150 +75,72 @@ class entry:
     title = ''
     date = ''
 
+urlDate = datetime.strptime("01.01.2019",'%d.%m.%Y')
 
-# read url to read from
-with open(os.path.join(os.getcwd(), "nextHour.txt"), "r") as f:
-    url = f.readline()
+while urlDate.strptime('%Y.%m.%d.%H') != "2019.12.31.23":
+    urlDate = urlDate + datetime.timedelta(days = 1)
+    time.sleep(300)
+    for hour in range(24):
 
-# header for request
-headerString = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko)\
-Chrome / 41.0 .2272 .101 Safari / 537.36 '
+        urlDate = urlDate.replace(hour = hour)
 
-# new session for request
-session = requests.Session()
+        url = 'https://www.swr.de/swr1/bw/playlist/index.html?time=' + urlDate.strftime('%H') + '%3A00&date=' + urlDate.strftime('%Y-%m-%d')
 
-headers = {'User-Agent': headerString}
+        # header for request
+        headerString = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko)\
+        Chrome / 41.0 .2272 .101 Safari / 537.36 '
 
-# perform get request
-contents = session.get(url, headers=headers)
+        # new session for request
+        session = requests.Session()
 
-# write warning in error case
-if contents.status_code != 200:
-    errorMessage = 'No correct start URL was supplied, please create a file named\
-        "nextHour.txt" in the same folder as the executable and place a \
-        working URL in it!'
-    print(errorMessage)
+        headers = {'User-Agent': headerString}
 
-# read encoding of contents
-encoding = contents.encoding if 'charset' in contents.headers.get(
-    'content-type', '').lower() else None
+        # perform get request
+        contents = session.get(url, headers=headers)
 
-# create BeatifulSoup Html reader instance with correct encoding
-soup = BeautifulSoup(
-    contents.content, from_encoding=encoding, features="html.parser")
+        # read encoding of contents
+        encoding = contents.encoding if 'charset' in contents.headers.get(
+            'content-type', '').lower() else None
 
-# find date
-for x in url.split("/"):
-    if "date" in x:
-        date = x.split("=")[1][4:8]
+        # create BeatifulSoup Html reader instance with correct encoding
+        soup = BeautifulSoup(
+            contents.content, from_encoding=encoding, features="html.parser")
 
-# find title of program
-programTitle = soup.find("h2", "musicProgHead").text.strip()
+        # find all li tags from class "musicListItem"
+        items = soup.find_all("div", {"class": "list-playlist-item"}, "dd")
 
-# find all li tags from class "musicListItem"
-liItems = soup.find_all("li", {"class": "musicListItem"})
+        # get the text without html tags contained in these items
+        results = [i.text for i in items]
 
-# get the text without html tags contained in these items
-results = [i.text for i in liItems]
+        # parse the result into  entry objects
+        songEntrys = []
+        for unchangedData in results:
+            # split line at newline char to find the relevant lines
+            dataLines = unchangedData.split('\n')
+            relevantLines = []
+            for line in dataLines:
+                # remove whitespace
+                lineStripped = line.strip()
+                # add line to result if there is still text in line
+                if lineStripped != '':
+                    relevantLines.append(lineStripped)
+            
+            date = datetime.strptime(relevantLines[0],'%d.%m.%Y %H:%M')
 
-# parse the result into  entry objects
-songEntrys = []
-for unchangedData in results:
-    # split line at newline char to find the relevant lines
-    dataLines = unchangedData.split('\n')
-    relevantLines = []
-    for line in dataLines:
-        # remove whitespace
-        lineStripped = line.strip()
-        # add line to result if there is still text in line
-        if lineStripped != '':
-            relevantLines.append(lineStripped)
-    # create entry object for line
-    obj = entry(relevantLines[0], relevantLines[1],
-                relevantLines[2], programTitle, date)
-    songEntrys.append(obj)
+            if date.hour == urlDate.hour:
+                # create entry object for line
+                obj = entry(relevantLines[2], relevantLines[4], date)
+                songEntrys.append(obj)
 
-# make a new file every month
-resultFileName = 'SWR1_History_' + \
-    str(timeNow.year) + '_' + str(timeNow.month) + '.txt'
+        # make a new file every month
+        resultFileName = 'SWR1_History_' + \
+            str(urlDate.year) + '_' + str(urlDate.month) + '.txt'
 
-# join file path
-resultFilePath = os.path.join(os.path.expanduser(
-    '~'), settings['path'], resultFileName)
+        # join file path
+        resultFilePath = os.path.join(os.path.expanduser(
+            '~'), settings['path'], resultFileName)
 
-# print result to file
-with open(resultFilePath.replace('\n', ''), 'a') as file:
-    for obj in songEntrys:
-        file.write(str(obj) + '\n')
-
-
-# find next link
-# new month
-if timeNow.hour == 0 and timeNow.day == 1:
-    # get json link from javascript part
-    jsLink = soup.find("div", "calBox").find("li", "arrowForward").find("a")
-    url = jsLink["data-ctrl-monthsheet-source"].split('\'')[3]
-
-    # perform get for json
-    contents = session.get(url, headers=headers)
-
-    # read encoding of contents
-    encoding = contents.encoding if 'charset' in contents.headers.get(
-        'content-type', '').lower() else None
-
-    # parse the link out of json part
-    # WARNING REALLY unsafe and could definitly fail with slight changes to the site
-    htmlContent = re.compile("<a href=(.*?)>")
-    reRes = htmlContent.search(str(contents.content[350:]))
-    url = reRes.group(1).replace('\\', '').replace('"', '').strip()
-
-    # perform get request for new day
-    contents = session.get(url, headers=headers)
-
-    # read encoding of contents
-    encoding = contents.encoding if 'charset' in contents.headers.get(
-        'content-type', '').lower() else None
-
-    # cook up some new stew
-    soup = BeautifulSoup(
-        contents.content, from_encoding=encoding, features="html.parser")
-
-
-# if new day has started a new request has to be made
-elif timeNow.hour == 0:
-    # find day table
-    allDays = soup.find("table", "progDays").find_all("a")
-
-    # find current day of month
-    dayToFind = str(timeNow.day)
-
-    # look for current day
-    for day in allDays:
-        if dayToFind in day.text:
-            url = day['href']
-
-    # perform get request for new day
-    contents = session.get(url, headers=headers)
-
-    # read encoding of contents
-    encoding = contents.encoding if 'charset' in contents.headers.get(
-        'content-type', '').lower() else None
-
-    # cook up some new stew
-    soup = BeautifulSoup(
-        contents.content, from_encoding=encoding, features="html.parser")
-
-# time period for next run
-hourToFind = str(timeNow.hour) + ' - ' + \
-    str((timeNow + timedelta(hours=1)).hour)
-
-# find all time periods
-songTimes = soup.find("div", "progTime pulldown").find_all("a")
-
-# look for correct time period
-for songTime in songTimes:
-    if hourToFind in songTime.text:
-        # write time period to file
-        with open(os.path.join(os.getcwd(), 'nextHour.txt'), 'w') as f:
-            print(songTime['href'], file=f)
-        break
+        # print result to file
+        with open(resultFilePath.replace('\n', ''), 'a') as file:
+            for obj in songEntrys:
+                file.write(str(obj) + '\n')
