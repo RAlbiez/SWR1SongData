@@ -17,12 +17,14 @@ with open(os.path.join(os.getcwd(), "Settings.txt"), 'r') as file:
     sett = file.readlines()
 
 for setting in sett:
-    x = setting.split('=')
-    settings[x[0]] = x[1]
+    jsonContent = setting.split('=')
+    settings[jsonContent[0]] = jsonContent[1]
 
 # link for lastFM song API
 APILink = 'http://ws.audioscrobbler.com/2.0/?method=track.getInfo&autocorrect=1&api_key=' + \
     settings['API key'].replace('\n', '')
+
+songMetadata = {}
 
 # data entry class
 # time: time song was played
@@ -40,27 +42,35 @@ class entry:
     # str output
     def __str__(self):
         # build url for API call
-        artistAPI = self.artist
-        trackAPI = self.songName
-        specificLink = APILink + \
-            '&artist=' + \
-            urllib.parse.quote_plus(
-                artistAPI) + '&track=' + urllib.parse.quote_plus(trackAPI) + '&format=json'
+        dicKey = (self.artist,self.songName)
+        jsonContent = ''
+        if dicKey in songMetadata:
+            jsonContent = songMetadata[dicKey]
+        else:
+            artistAPI = self.artist
+            trackAPI = self.songName
+            specificLink = APILink + \
+                '&artist=' + \
+                urllib.parse.quote_plus(
+                    artistAPI) + '&track=' + urllib.parse.quote_plus(trackAPI) + '&format=json'
 
-        content = session.get(specificLink, headers=headers)
+            content = session.get(specificLink, headers=headers)
 
-        # load information from content
-        x = json.loads(content.text, object_hook=lambda d: Namespace(**d))
+            # load information from content
+            jsonContent = json.loads(content.text, object_hook=lambda d: Namespace(**d))
+
+            songMetadata[dicKey] = jsonContent
+        
         albumName = ''
         length = ''
         tags = []
-        if hasattr(x, 'track'):
-            if hasattr(x.track, 'album') and hasattr(x.track.album, 'title'):
-                albumName = x.track.album.title
-            if hasattr(x.track, 'duration'):
-                length = str(int(x.track.duration) // 1000)
-            if hasattr(x.track, 'toptags') and hasattr(x.track.toptags, 'tag'):
-                for tag in x.track.toptags.tag:
+        if hasattr(jsonContent, 'track'):
+            if hasattr(jsonContent.track, 'album') and hasattr(jsonContent.track.album, 'title'):
+                albumName = jsonContent.track.album.title
+            if hasattr(jsonContent.track, 'duration'):
+                length = str(int(jsonContent.track.duration) // 1000)
+            if hasattr(jsonContent.track, 'toptags') and hasattr(jsonContent.track.toptags, 'tag'):
+                for tag in jsonContent.track.toptags.tag:
                     tags.append(tag.name)
 
         # build output
@@ -77,9 +87,8 @@ class entry:
 
 urlDate = datetime.strptime("01.01.2019",'%d.%m.%Y')
 
-while urlDate.strptime('%Y.%m.%d.%H') != "2019.12.31.23":
-    urlDate = urlDate + datetime.timedelta(days = 1)
-    time.sleep(300)
+while urlDate.year == 2019:
+    print(urlDate)
     for hour in range(24):
 
         urlDate = urlDate.replace(hour = hour)
@@ -129,7 +138,9 @@ while urlDate.strptime('%Y.%m.%d.%H') != "2019.12.31.23":
 
             if date.hour == urlDate.hour:
                 # create entry object for line
-                obj = entry(relevantLines[2], relevantLines[4], date)
+                songName = relevantLines[2] if len(relevantLines) > 1 and len(relevantLines[2]) > 0 else 'Unknown Song'
+                songArtist = relevantLines[4] if len(relevantLines) > 3 and len(relevantLines[4]) > 0 else 'Unknown Artist'
+                obj = entry(songName, songArtist, date)
                 songEntrys.append(obj)
 
         # make a new file every month
@@ -144,3 +155,5 @@ while urlDate.strptime('%Y.%m.%d.%H') != "2019.12.31.23":
         with open(resultFilePath.replace('\n', ''), 'a') as file:
             for obj in songEntrys:
                 file.write(str(obj) + '\n')
+
+    urlDate = urlDate + timedelta(days = 1)
