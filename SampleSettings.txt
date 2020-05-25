@@ -1,0 +1,4 @@
+API key=XXXX                    #API Key for lastFM API
+path=SongData                   #Folder in your homedirectory
+StartDate=01.01.2020:00         
+EndDate=01.01.2020:02
