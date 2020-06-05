@@ -16,7 +16,7 @@ with open(os.path.join(os.getcwd(), "Settings.txt"), 'r') as file:
     sett = file.readlines()
 
 for setting in sett:
-    line = setting.split('=')
+    line = setting.split('=',1)
     settings[line[0]] = line[1].replace('\n', '')
 
 # link for lastFM song API
@@ -89,7 +89,7 @@ urlDate = datetime.strptime(settings['StartDate'],'%d.%m.%Y:%H')
 while urlDate.strftime('%d.%m.%Y:%H') != settings['EndDate']:
     print(urlDate)
 
-    url = 'https://www.swr.de/swr1/bw/playlist/index.html?time=' + urlDate.strftime('%H') + '%3A00&date=' + urlDate.strftime('%Y-%m-%d')
+    url = settings['StationURL'] + urlDate.strftime('%H') + '%3A00&date=' + urlDate.strftime('%Y-%m-%d')
 
     # header for request
     headerString = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko)\
@@ -148,7 +148,7 @@ while urlDate.strftime('%d.%m.%Y:%H') != settings['EndDate']:
             songEntrys.append(obj)
 
     # make a new file every month
-    resultFileName = 'SWR1_History_' + \
+    resultFileName = settings['StationName'] + '_History_' + \
         str(urlDate.year) + '_' + str(urlDate.month) + '.txt'
 
     # join file path

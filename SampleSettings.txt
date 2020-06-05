@@ -2,3 +2,5 @@ API key=XXXX                    #API Key for lastFM API
 path=SongData                   #Folder in your homedirectory
 StartDate=01.01.2020:00         
 EndDate=01.01.2020:02
+StationName=SWR4
+StationURL=https://www.swr.de/swr4/bw/musik-events/musikrecherche-s-bw-artikel-100.html?time=
