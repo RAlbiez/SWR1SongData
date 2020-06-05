@@ -43,6 +43,8 @@ for station, data in alldata.items():
     
     #groupedbysonganddaysorted = {k: v for k, v in sorted(groupedbysongandday.items(), key = lambda item: item[1], reverse=True)}
 
+    print(station+':\n')
+
     i=0
     for key, value in groupedbysongsorted.items():
         if i == 10:
@@ -52,9 +54,7 @@ for station, data in alldata.items():
 
     totalplayed = len(data)
 
-    print(station+':\n')
-    
-    diversityscore = sum([1/x for x in groupedbysong.values()]) / totalplayed
+    diversityscore = sum([1/x for x in groupedbysong.values()]) / len(groupedbysong.values())
 
     print("\nDiversity Score:\t"+ str(diversityscore))
 
