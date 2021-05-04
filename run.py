@@ -56,7 +56,10 @@ class entry:
             content = session.get(specificLink, headers=headers)
 
             # load information from content
-            jsonContent = json.loads(content.text, object_hook=lambda d: Namespace(**d))
+            try:
+                jsonContent = json.loads(content.text, object_hook=lambda d: Namespace(**d))
+            except:
+                jsonContent = ''
 
             songMetadata[dicKey] = jsonContent
         

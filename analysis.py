@@ -30,7 +30,7 @@ for station, data in alldata.items():
             groupedbysong[key] +=1
         else:
             groupedbysong[key] = 1
-    
+
     groupedbysongsorted = {k: v for k, v in sorted(groupedbysong.items(), key = lambda item: item[1], reverse=True)}
 
     groupedbysongandday = {}
@@ -43,6 +43,18 @@ for station, data in alldata.items():
     
     #groupedbysonganddaysorted = {k: v for k, v in sorted(groupedbysongandday.items(), key = lambda item: item[1], reverse=True)}
 
+    songcountbyartist = {}
+
+    for d in data:
+        key = d[2]
+        if key in songcountbyartist:
+            songcountbyartist[key].add(d[1])
+        else:
+            songcountbyartist[key] = set()
+            songcountbyartist[key].add(d[1])
+    
+    songcountbyartistsorted = {k: v for k, v in sorted(songcountbyartist.items(), key = lambda item: len(item[1]), reverse=True)}
+
     print(station+':\n')
 
     i=0
@@ -51,6 +63,14 @@ for station, data in alldata.items():
             break
         i+=1
         print(str(value) +'\t\t'+ key[0] + " : " + key[1])
+    
+    print('artists:')
+    i=0
+    for key, value in list(songcountbyartistsorted.items())[1:]:
+        if i == 10:
+            break
+        i+=1
+        print(key + " : " + str(len(value)))
 
     totalplayed = len(data)
 
