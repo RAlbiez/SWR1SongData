@@ -92,7 +92,7 @@ urlDate = datetime.strptime(settings['StartDate'],'%d.%m.%Y:%H')
 while urlDate.strftime('%d.%m.%Y:%H') != settings['EndDate']:
     print(urlDate)
 
-    url = settings['StationURL'] + urlDate.strftime('%H') + '%3A00&date=' + urlDate.strftime('%Y-%m-%d')
+    url = settings['StationURL'] + urlDate.strftime('%H') + '%3A00&swx_date=' + urlDate.strftime('%Y-%m-%d')
 
     # header for request
     headerString = 'Mozilla/5.0 (Windows NT 6.1; WOW64) AppleWebKit/537.36 (KHTML, like Gecko)\
@@ -133,17 +133,17 @@ while urlDate.strftime('%d.%m.%Y:%H') != settings['EndDate']:
             if lineStripped != '':
                 relevantLines.append(lineStripped)
         
-        date = datetime.strptime(relevantLines[0],'%d.%m.%Y %H:%M')
+        date = datetime.strptime(relevantLines[0] + ' ' + relevantLines[1],'%d.%m.%Y %H:%M')
 
         if date.hour == urlDate.hour:
             # create entry object for line
-            if len(relevantLines) > 1:
-                songName = relevantLines[2]
+            if len(relevantLines) > 3:
+                songName = relevantLines[3]
             else:
                 songName = 'Unknown Song'
             
-            if len(relevantLines) > 4:
-                 songArtist = relevantLines[4]
+            if len(relevantLines) > 5:
+                 songArtist = relevantLines[5]
             else:
                 songArtist = 'Unknown Artist'
 
